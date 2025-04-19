@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../firebaseConfig";
 
 function SignupPage() {
   const [name, setName] = useState("");
@@ -7,7 +9,7 @@ function SignupPage() {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     let currentErrors = {};
 
@@ -20,8 +22,12 @@ function SignupPage() {
     setErrors(currentErrors);
 
     if (Object.keys(currentErrors).length === 0) {
-      console.log("Signup submitted:", { name, email, password });
-      // TODO: send to backend later
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        console.log("✅ User signed up:", userCredential.user);
+      } catch (error) {
+        console.error("❌ Signup error:", error.message);
+      }
     }
   };
 
