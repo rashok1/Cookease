@@ -1,62 +1,55 @@
 require("dotenv").config();
 const express = require("express");
-const { Pool } = require("pg");
 const cors = require("cors");
-const { fetchAndInsertRecipes } = require("./googleAPI"); // Import function from googleAPI.js
+const { fetchAndStoreRecipes } = require("./googleAPI");
+const { initializeApp } = require("firebase/app");
+const { getFirestore, collection, getDocs } = require("firebase/firestore");
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Connect to Supabase (PostgreSQL)
-const pool = new Pool({
-  connectionString: process.env.DB_CONNECTION,
-});
+// Firebase setup
+const firebaseConfig = {
+  apiKey: process.env.GOOGLE_API_KEY,
+  authDomain: "your-app.firebaseapp.com",
+  projectId: "your-app",
+  storageBucket: "your-app.appspot.com",
+  messagingSenderId: "XXXX",
+  appId: "YOUR_APP_ID"
+};
 
-// Test Database Connection
-pool.connect()
-  .then(() => console.log("Connected to Supabase Database!"))
-  .catch(err => console.error("Database connection failed:", err));
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
 
-// API Routes
+// Root Route
 app.get("/", (req, res) => {
-  res.send("Welcome to the Cookease API!");
+  res.send("Welcome to the Cookease Firebase API!");
 });
 
-// Fetch all users
-app.get("/users", async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM "User"');
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Fetch all recipes
+// Fetch all recipes from Firestore
 app.get("/recipes", async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM Recipe');
-    res.json(result.rows);
+    const snapshot = await getDocs(collection(db, "recipes"));
+    const recipes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json(recipes);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Add a new route to fetch and insert recipes from Google API
-app.get("/fetch-recipes/:query", async (req, res) => {
+// Import recipes from Google Recipes API
+app.get("/import-recipes/:query", async (req, res) => {
   const { query } = req.params;
-
   try {
-    await fetchAndInsertRecipes(query);
-    res.json({ message: `Successfully fetched and inserted recipes for "${query}"` });
+    await fetchAndStoreRecipes(query);
+    res.json({ message: `Recipes for '${query}' imported successfully.` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Start Servers
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
